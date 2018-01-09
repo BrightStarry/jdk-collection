@@ -1,14 +1,65 @@
-#### 集合
+### JDK-Collection集合入门
 
-* Iterable<T> interface: 可迭代接口.实现该接口的对象允许for-each循环
+#### 首先介绍下迭代器的概念
+* 迭代器无非是一个接口,假设我们有一个数组,如果我们要实现迭代器,只需要根据该接口定义的方法,返回对应结果而已.  
+* 如下代码,是一个简化的ArrayList 加上简化的迭代器.
+>
+    class ArrayList<E> implements Iterable<E>{
+        //每次扩容递增的大小
+        private static final int INCREMENT = 10;
+        //存储元素的数组
+        private E[] array = (E[])new Object[10];
+        //数组大小
+        private int size;
+        //增加方法
+        public void add(E e) {
+            if (size < array.length) {
+                array[size++] = e;
+            }
+        }
+        //返回长度
+        public int size(){
+            return size;
+        }
+        //返回迭代器类
+        @Override
+        public Iterator<E> iterator() {
+            return new Itr();
+        }
+        //迭代器-内部类
+        private class Itr implements Iterator<E> {
+            //游标
+            int cursor = 0;
+            //判断是否有下一个元素
+            @Override
+            public boolean hasNext() {
+                return cursor != size();
+            }
+            //返回下一个元素
+            @Override
+            public E next() {
+                return array[cursor++];
+            }
+            //删除该元素
+            @Override
+            public void remove() {
+                //doSomething
+            }
+        }
+    }
+>
+
+* 如下是jdk中迭代器的真正定义.
+* Iterable<T> : 可迭代接口.任何类的迭代器都需要通过实现该接口的Iterator<T> iterator()方法返回.
     * Iterator<T> iterator():返回一个迭代器
     * default void forEach(Consumer<? super T> action): Java8. 使用action.accept()消费每个元素,
         直到全部消费或抛出异常.
         >
-            例如,不过ArrayList重写了该方法.
+            如下,其中的foreach()中传入的这个表达式可以理解为一个Consumer<? super T> action
             new ArrayList<>().forEach(item->{
             			System.out.println(item);
             		});
+            只在此处稍微提及Java8相关点,其他Java8相关留后再议...
         >
     * default Spliterator<T> spliterator(): 创建Spliterator(可分割迭代器).一个fork/join的并行处理的迭代器,此处不详细展开.
 * Iterator<E> interface: 迭代器接口,所有迭代器需要实现该接口.
@@ -16,9 +67,8 @@
     * E next(): 返回下一个元素.如果没有.则抛出NoSuchElementException异常
     * default void remove(): 删除元素,在底层collection中.默认实现是抛出异常
     * default void forEachRemaining(Consumer<? super E> action):  对迭代器剩下的所有元素进行相同操作,直到完成或抛出异常.
-* 如下是一个自定义迭代器的例子:
-> https://github.com/BrightStarry/Pattern/blob/master/src/main/iterator/com/zx/a/IteratorTest.java    
-        
+
+#### 下面介绍大部分集合(除Map外)的抽象,只需大致了解即可    
 * Collection<E> interface: 所有集合的父类
     * int size(): 返回集合元素数量.如果大于Integer.MAX_VALUE,则返回Integer.MAX_VALUE
     * boolean isEmpty():集合是否是空的
@@ -43,7 +93,7 @@
     * default Stream<E> stream():返回  Stream<E> 
     * default Stream<E> parallelStream(): 返回Stream<E> ,并发的.
 
-* AbstractCollection<E> abstract: 抽象集合类.集合接口的最小实现.
+* AbstractCollection<E> abstract: 抽象集合类.集合接口的最小实现.对Collection接口做了稍许实现.
 要实现一个不可修改的集合,只需要继承该类,然后实现iterator()和size()即可.(返回的迭代器必须实现hasNext()和next()方法)
 要实现可修改的集合,必须重写add()方法,默认是抛出UnsupportedOperationException.并且返回的迭代器必须实现remove()方法
     * boolean isEmpty(): 实现:  return size() == 0;
@@ -66,6 +116,11 @@
     * void clear(): 迭代,循环调用remove()方法.大多数实现会重写该方法(应该是将一个内部数组 == null)
     * String toString() :一个我们常见的toString实现.
    
+
+
+
+
+#### List相关(包含Queue/Deque)
 * List<E> interface: 一个有序集合,可通过整数索引查询元素.   
 提供了一个特殊的迭代器ListIterator.允许元素的插入和替换.还允许双向访问Iterator接口提供的迭代器
     * default void replaceAll(UnaryOperator<E> operator) : 用运算操作的值替换每个元素
@@ -94,18 +149,8 @@
     * void remove(): 删除当前元素,必须在调用next或previous后调用
     * void set(E e): 重新set当前元素的值.必须在调用next或previous后调用
     * void add(E e): 增加元素在当前位置.
-
-* AbstractList<E> abstract extends AbstractCollection<E> implements List<E> : 抽象list;  
-最小化的实现了list接口,数据由能是随机读写的数据结构(例如数组)存储.  
-如果需要顺序读写,AbstractSequentialList<E>抽象类应该比该类优先更好使.
-    * add(int index, E element) : 在指定索引增加元素的方法,该类的默认实现是抛异常. add(E e)的实现也依靠它,index参数为size()
-    * E get(int index): 从指定索引获取数据...
     
-#### 杂
-我想了下,这一个个方法看过来似乎毫无软用..我还是直接看类的具体实现把..从大局上看.
-
-#### List相关(包含Queue/Deque)
-* AbstractList<E>抽象的随机读写list类.
+* AbstractList<E>抽象的随机读写list类.如果需要顺序读写,AbstractSequentialList<E>抽象类应该比该类优先更好使.
     * Itr:实现了迭代器接口
     >
         抽象类中有一个modCount字段,保存该类修改操作次数.
@@ -130,24 +175,36 @@
     并且默认实现默认的ListIterator.
 >
 
-* Queue<E>接口: 
+* Queue<E>接口:   
+队列,也就是遵循FIFO(先进先出)原则的一种数据结构.只能在头部操作元素
 >
     add:增加元素; offer:获取元素; 
     remove:删除并返回首元素,为空抛异常; poll:删除并返回首元素,为空返回null;
     element: 查看但不删除首元素,为空抛异常; peek:查看但不删除首元素,为空返回null;
 >
 
-* Deque<E>接口,继承Queue<E>接口:
+* Deque<E>接口,继承Queue<E>接口:  
+双向队列,可以在头部和尾部操作元素
 >
     addFirst   addLast  offerFirst offerLast
     反正就这类头部尾部元素各种操作的方法.不赘述
 >
     
-*  ArrayList<E> : extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, java.io.Serializable    
+* ArrayList<E> : extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, java.io.Serializable    
     * 综述
-    >
+    >   
         一个底层为Object[],然后通过System.arraycopy()等方法.操作扩容数组的一个集合.
-        除了java8的方法外,还有SubList类,引用了自身,进行操作,稍显繁琐,其他没有什么特别的地方
+        数据实际都存储在数组中,只不过在增加时,自动
+        除了java8的方法外,还有SubList类(引用了自身,进行操作),其他没有什么特别的地方.
+        
+        如下是该类中的一个增加元素方法.其中的ensureCapacityInternal(size + 1)方法是
+        实现数组增加容量的逻辑.可见其简单.
+            public boolean add(E e) {
+                ensureCapacityInternal(size + 1);  // Increments modCount!!
+                elementData[size++] = e;
+                return true;
+            }
+        
     >
     * 属性介绍
     >
@@ -157,9 +214,9 @@
         elementData : 真正的元素数据,通常会比size大上一些,用来预扩容
         size: 真正存在的元素个数,可能小于elementData.length,可以使用trimToSize()方法去掉末尾空元素
             也就是说,调用后,elementData会删除预扩容的所有空元素.
-        int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8 : 分配数组的最大大小.8位预留给特殊的VM
+        int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8 : 分配数组的最大大小.还有8个数字预留给特殊的VM(需要在数组头部保存一些信息)
         
-        之前一直没考虑过为什么很多java库类都要为空专门定义一个对象.现在明白了.就是为了不重复的创建空对象.
+        之前一直没考虑过为什么很多java库类都要为空专门定义一个对象.现在明白了.就是为了不重复的创建空对象.并可以明确的知道对象当前状态.
     > 
     * 扩容
     >
@@ -179,12 +236,37 @@
         ListItr:一样优化了下.
         
         以及一些关于java8的的方法.也就是Lamdba构建出对应的类,然后进行removeIf之类的操作.
+        
+        在随便说下,删除方法如下.
+        public E remove(int index) {
+            rangeCheck(index);//检查索引范围是否正确
+    
+            modCount++;//该对象修改次数递增
+            E oldValue = elementData(index);//从数组中获取要被删除的对象.
+            //elementData()方法就是从数组中根据索引获取元素,并向下转为对应泛型.
+            
+            //假设size为10,要删除最后一个元素(索引9),则为0,
+            //假设size为10,要删除第8个元素(索引为7),则为2
+            int numMoved = size - index - 1;
+            //如果操作的不是最后一个元素.如下
+            //  1234567091 这么一个数组,0是要删除的那个对象.如果它不再第一个,就需要将
+            //  最后两个元素91 移动到 原来0的位置,就可以实现删除对象,并保证数组中间没有null.
+            //  所以如下的方法,就是将这个数组的 要删除的index + 1 开始的 长度为 它的位置到结尾-1 .移动到 
+            //  这个数组的 要删除的index 的位置........就是这样....
+            if (numMoved > 0)
+                System.arraycopy(elementData, index+1, elementData, index,
+                                 numMoved);
+            //此时数组 元素个数的最后一个元素,会为空. 注意,不是数组的最后一个元素
+            //因为这个数组实际上是比目前存储的元素个数要大一些的.防止每次增加元素都去扩容.
+            elementData[--size] = null;
+            return oldValue;
+        }
     >
 * Vector<E> extends AbstractList<E> implements List<E>, RandomAccess, Cloneable, java.io.Serializable
     * 综述
     >
         一个和List极其相似的集合.
-        它的扩容grow(int minCapacity)方法.在capacityIncrement(每次扩容增加量)大于0时,为capacityIncrement,小于等于0时,为当前容量的两倍
+        它的扩容grow(int minCapacity)方法.在capacityIncrement变量(每次扩容增加量)大于0时,为capacityIncrement,小于等于0时,为当前容量的两倍
         并且大部分方法都使用了synchronized关键字
     > 
     
@@ -253,7 +335,8 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
     还有一些java8相关的....暂时略过.
     
     内部接口
-    Entry<K,V> : 一个key/value对.只能通过entrySet()方法获取.如果迭代时修改了map的值,则也是未定义(???).除非使用该接口内部修改的.
+    Entry<K,V> : 一个key/value对.有getKey()/getValue()/setValue(V value)等方法
+    该对象只能通过entrySet()方法获取.如果迭代时修改了map的值,则也是未定义(???).除非使用该接口内部修改的.
         可以获取key和value,修改value.其他还有些java8的.略过.
 >
 * AbstractMap<K,V> abstract  implements Map<K,V> : 抽象map类.最小化的实现了map接口
@@ -265,7 +348,72 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
             if (key.equals(e.getKey()))
                 return e.getValue();
         }
+        
+    该类维护如下两个变量
+        transient Set<K>        keySet;
+        transient Collection<V> values;
+    然后keySet()和values()两个方法的实现极其相似.
+    都是在第一次被调用时(通过判断如上两个变量是否为空,判断是否是第一次被调用,因为调用后会给变量赋值),
+    分别创建匿名内部类AbstractSet和AbstractCollection.以及这两个抽象类内部的迭代器.
+    并且,都了保存entrySet().iterator();返回的迭代器.让自己的内部迭代器的引用该迭代器.
+    代码如下
+        public Set<K> keySet() {
+                Set<K> ks = keySet;
+                if (ks == null) {
+                    ks = new AbstractSet<K>() {
+                        public Iterator<K> iterator() {
+                            return new Iterator<K>() {
+                                private Iterator<Entry<K,V>> i = entrySet().iterator();
+                                public boolean hasNext() {return i.hasNext();}
+                                public K next() {return i.next().getKey();}
+                                public void remove() {i.remove();}
+                            };
+                        }
+                        public int size() {return AbstractMap.this.size();}
+                        public boolean isEmpty() {return AbstractMap.this.isEmpty();}
+                        public void clear() {AbstractMap.this.clear();}
+                        public boolean contains(Object k) {return AbstractMap.this.containsKey(k);}
+                    };
+                    keySet = ks;
+                }
+                return ks;
+            }
+            
+    entrySet()方法为抽象方法.这也说明,该类的实现类,应该都是将数据真正保存在entrySet()中的.
+    而所谓的keySet()和values()的结果都无非是将entrySet().iterator()返回的迭代器做了下封装.
+    ....我之前看这个代码,没仔细看,一直觉得,上面那两个变量除了第一次调用这两方法时,后续并没有被改变过.
+    是如何做到和集合当前的数据一致的....
+    
+    此外,该类实现了一个简单的Map.Entry<K,V>,名为SimpleEntry<K,V>.
+    简单的维护了如下两个变量而已
+        private final K key;
+        private V value;
+    有一点特别,setValue()方法,返回的是旧的value.
+    
+    还有一个SimpleImmutableEntry<K,V>.和SimpleEntry<K,V>的区别在于value也成final的.并且setValue()方法会直接抛出异常.
 > 
+
+* HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable
+    * 综述
+    >
+        
+    >
+    * 介绍
+    >
+    
+    >
+    * 属性
+    >
+    
+    >
+    * 其他
+    >
+        
+    >
+    * 注意点
+    >
+        它通常作为一个二进制的hash table.当时当数据过大,就变为了TreeNode,每个结构类似于TreeMap.
+    >
 
     
 #### Set相关-本来先看set...结果我忘了HashSet的实现是靠HashMap....
