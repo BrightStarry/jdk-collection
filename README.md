@@ -1,5 +1,10 @@
 ### JDK-Collection集合入门
 
+* 总的list和set类结构大致如下所示
+![Collection结构图](img/Collection.png)
+* Map不继承Collection,其结构如下
+![Map结构图](img/Map.png)
+
 #### 首先介绍下迭代器的概念
 * 迭代器无非是一个接口,假设我们有一个数组,如果我们要实现迭代器,只需要根据该接口定义的方法,返回对应结果而已.  
 * 如下代码,是一个简化的ArrayList 加上简化的迭代器.
@@ -68,6 +73,19 @@
     * default void remove(): 删除元素,在底层collection中.默认实现是抛出异常
     * default void forEachRemaining(Consumer<? super E> action):  对迭代器剩下的所有元素进行相同操作,直到完成或抛出异常.
 
+#### 其他
+* Collections.synchronizedSortedMap(SortedMap<K,V> m)之类的,将普通集合包装成同步集合的方法... 
+其实现居然就是定义一个内部类,组合了传入的集合.然后定义了和该集合相同的一些增删改查的方法,然后直接调用传入的集合的方法,  
+然后加上synchronized关键字而已...如下
+>
+    static class SynchronizedMap<K,V> {
+        private final Map<K,V> m;//存储synchronizedSortedMap()方法传入的Map集合
+        final Object      mutex;//作为锁对象.
+        public V get(Object key) {synchronized (mutex) {return m.get(key);}}
+        public V put(K key, V value) {synchronized (mutex) {return m.put(key, value);}}
+    }
+>
+
 #### 下面介绍大部分集合(除Map外)的抽象,只需大致了解即可    
 * Collection<E> interface: 所有集合的父类
     * int size(): 返回集合元素数量.如果大于Integer.MAX_VALUE,则返回Integer.MAX_VALUE
@@ -121,6 +139,7 @@
 
 
 #### List相关(包含Queue/Deque)
+![List类图](img/List.png)
 * List<E> interface: 一个有序集合,可通过整数索引查询元素.   
 提供了一个特殊的迭代器ListIterator.允许元素的插入和替换.还允许双向访问Iterator接口提供的迭代器
     * default void replaceAll(UnaryOperator<E> operator) : 用运算操作的值替换每个元素
@@ -394,17 +413,91 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
 > 
 
 * HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable
+    * 关于哈希表(hash table)
+    >
+        哈希表由数组实现.
+        在普通数组中,我们存储元素的位置是随机的.例如我可以将"A"存在第3个元素,也可以存在第4个元素.元素和下标没有确定的关系.
+        
+        而哈希表中,存储的元素和数组下标有确定的关系.例如.存储一个班级的学生,如果将学生按学号(key)存储在对应下标的数组位置上,
+        那么如果我们需要按照学号(key)查询学生,只需要 Student hash(int key){return students[key]};(hash()函数) 即可. 
+        
+        而这个表示key和元素存储位置之间的对应关系,可以成为 哈希函数. 按照这个思想创建的存储了学生的数据结构也就是哈希表.
+        上述中,我们构造哈希函数的方法称为直接定址法.(取关键字或关键字的某一线性函数作为哈希)
+        Hash(key)=key或Hash(key)=a*key+b.
+        而上述中,正确的表示方式应该是 Hash(key)=key-1. 因为数组下标从0开始.
+        
+        通常,我们不会直接使用这种有线性关系的值作为key.例如使用学生姓名作为key,那么可以有多种策略(每个key对象的hashcode()方法).
+        例如,取学生的姓氏的ASCII码(hashcode),然后对10取余.或者累加学生姓名的每个字的ASCII码,对10取余;存储在数组对应下标位置.
+        但是,这样可能会产生多个同学的key生成的哈希地址一样的情况(这种情况被称为同义词).
+        
+        那么.最常见的处理方式是链地址法(HashMap中就就使用了该方法).定义一个每个元素都是一个链表的数组.数组长度为哈希地址的区间(此处对10取模,也就是0-9);
+        那么将同义词的学生存储在同一个数组位置的链表中即可(每次新增都追加在链表的首位或末尾,链表是无界的.);
+        
+        那么哈希表就是通过一个哈希函数Hash(key)和处理冲突方法将一个关键字映射到一个连续的地址集(数组)上，并以关键字的某种策略
+        作为记录在表中的存储位置。
+        
+        哈希函数的几种常见策略:
+            1. 直接定址法:Hash(key)=key或Hash(key)=a*key+b. 就像上面说的根据学号来定存储位置
+            2. 取模法:Hash(key)=key MOD p, p<=m(m为哈希表长). java中为(key % p)
+            3. 数字分析法: 取key中的若干位组成哈希地址.例如一个key:17826824998. 可以取其中的第一个数字和最后一个数字,组成两位数..作为哈希地址.
+            4. 平方取中法:取关键字平方后的中间若干位组成哈希地址.
+        由此可见.key最后都需要为数字,即使是String,也要先转为数字(见hashcode()方法)
+        
+        哈希表处理冲突的几种常见方法:
+            1. 链地址法:如上所述;
+            2. 开放地址法: 如果遇到同义词,就换一个哈希地址尝试. 例如,key的hashcode为10,数组长度为20; 10%20得到哈希地址,如果冲突,将10+1再次尝试.
+            3. 再哈希法: 例如key的hashcode冲突,就换一种方法计算hashcode.直到不冲突.
+            4. 建立公共溢出区: 在基础表的基础上多增加一个溢出表(可以为数组之类的.);不冲突,就直接存在基础表中,冲突了.放入溢出表.查询时先查询基础表,再查询溢出表.
+        
+        其增删查元素的时间复杂度都为O(1);(可以简单的理解为只需要一层循环,如果是O(2)就是两层嵌套循环....)    
+    >
     * 综述
     >
         
     >
     * 介绍
     >
-    
+        基于HashTable的Key/Value结构.key和value都可为null.
+        与HashTable大致相同.除了它取消同步,允许空值.不保证顺序.
+        迭代所需时间和容量成正比,所以初始容量不宜太高(或load factor过低).
+        
     >
-    * 属性
+    * 属性/方法等
     >
-    
+        static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;// 默认初始容量, 16,这样表示保证了其必须是2的x次方.
+        static final int MAXIMUM_CAPACITY = 1 << 30;//最大容量,限制自己指定的初始容量必须小于该值,必须是2的x次方且小于2的30次方.
+        static final float DEFAULT_LOAD_FACTOR = 0.75f;//默认负载因子
+        static final int TREEIFY_THRESHOLD = 8;//一个桶中,使用treeNode的阈值,当bin个数大于该值后,节点由hash table转为tree node.
+        static final int UNTREEIFY_THRESHOLD = 6;//一个桶中,不再使用treeNode的阈值,要小于TREEIFY_THRESHOLD.当bin个数小于该值后,tree node 转为 hash table
+        static final int MIN_TREEIFY_CAPACITY = 64;//当表的容量超过该值时,桶中的bin才能转为树,否则即使超过后,也只是扩容.
+        static class Node<K,V> implements Map.Entry<K,V> : 基本的哈希bin节点.用于大多数Entry.定义有如下属性
+                    final int hash;//该节点的hash值
+                    final K key;
+                    V value;
+                    Node<K,V> next;//指向的下一个节点,因为HashMap的实现是链地址法,所以每个节点会存储下一节点的引用
+                    稍微特别的是其hashCode() {return Objects.hashCode(key) ^ Objects.hashCode(value);}方法
+                    其中^操作数字表示按位异或(二进制并排,上下比较,相同为0,不同为1;此外,按位与(&)表示都为1时才为1.按位或(|)表示有一个为1就为1)
+        以上是所有static
+        
+        Class<?> comparableClassFor(Object x):判断x这个类是否实现了Comparable<(x的类型)>接口.如果实现了或者x的类型是String,那么返回x的Class<?>.否则返回null
+        int compareComparables(Class<?> kc, Object k, Object x):如果x为null或x的类型不为kc,返回0,否则返回((Comparable)k).compareTo(x);k和x的比较结果
+        int tableSizeFor(int cap):
+        transient Node<K,V>[] table;//存储元素的数组(哈希表).第一次初始化时使用,必须使用resize()方法
+        transient Set<Map.Entry<K,V>> entrySet;// 保存缓存的entrySet()的结果.
+        transient int size;//元素个数
+        transient int modCount;//修改次数(主要用于保证线程安全的快速失败使用)
+        int threshold;//下一次使用resize()方法后的容量大小(容量*负载因子) 如果没有分配Node<K,V>[] table,会为0,表示DEFAULT_INITIAL_CAPACITY(默认初始容量)
+            该属性的赋值全是通过int tableSizeFor(int cap)方法的结果
+        final float loadFactor;//负载因子
+        
+        以下为public
+        public HashMap(int initialCapacity, float loadFactor) : 指定初始容量和负载因子构建空的HashMap.
+        
+        
+            
+        
+        
+        
     >
     * 其他
     >
