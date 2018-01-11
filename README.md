@@ -481,7 +481,7 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
         
         Class<?> comparableClassFor(Object x):判断x这个类是否实现了Comparable<(x的类型)>接口.如果实现了或者x的类型是String,那么返回x的Class<?>.否则返回null
         int compareComparables(Class<?> kc, Object k, Object x):如果x为null或x的类型不为kc,返回0,否则返回((Comparable)k).compareTo(x);k和x的比较结果
-        int tableSizeFor(int cap):
+        int tableSizeFor(int cap):其作用是,返回一个是2的x次方的,比cap大的,但是又最接近cap的整数.例如cap=10,返回16;cap=17,返回32;
         transient Node<K,V>[] table;//存储元素的数组(哈希表).第一次初始化时使用,必须使用resize()方法
         transient Set<Map.Entry<K,V>> entrySet;// 保存缓存的entrySet()的结果.
         transient int size;//元素个数
@@ -493,7 +493,7 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
         以下为public
         public HashMap(int initialCapacity, float loadFactor) : 指定初始容量和负载因子构建空的HashMap.
         
-        
+
             
         
         
