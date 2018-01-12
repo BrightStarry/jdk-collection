@@ -462,6 +462,46 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
         迭代所需时间和容量成正比,所以初始容量不宜太高(或load factor过低).
         
     >
+    * hash相关等
+    >
+        static final int hash(Object key):计算一个key的hash地址.
+            static final int hash(Object key) {
+                int h;
+                return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+            }
+            调用key的hashcode方法计算出散列值,然后它的二进制和自己的右位移16位进行按位异或.相当于用其高16位打散它的低16位.
+            则会将这个数字的低16位变得更加随机(减少hash冲突).
+            并且,如果不进行该运算,如果若干key都是0x0DEF0000这样的,低四位位0,就可能导致若干值都存储在了下标为0的位置.
+            
+            
+        (length - 1) & hash : put()get()等方法中,调用hash()方法后的值还不能作为数组下标(因为太大了),还需要进行该运算.类似取模
+            将散列值和hashMap的长度-1进行按位与运算.这也是map长度需要为2的整数次幂的原因.
+            这样其长度的二进制表示只会是1后面跟若干个0,然后-1,就变成了若干个1.
+            再和散列值进行按位与,就相当于将高位全部归零，只保留末x位(根据此时map长度的位数).如下,
+                10100101 11000100 00100101
+            &	00000000 00000000 00001111
+            ----------------------------------
+            	00000000 00000000 00000101
+            然后,其下标就为5,这也是之前hash方法,将低位打乱的原因(基本上取的就是低位的数字,打乱后就可以让低位的数字和高位也有关)
+            
+        int tableSizeFor(int cap):其作用是,返回大于等于cap且最近的2的整数次幂的数.例如cap=10,返回16;cap=17,返回32;
+            static final int tableSizeFor(int cap) {
+                int n = cap - 1;
+                n |= n >>> 1;
+                n |= n >>> 2;
+                n |= n >>> 4;
+                n |= n >>> 8;
+                n |= n >>> 16;
+                return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
+            }
+            其思想很简单.每个cap转为二进制后.首位肯定是1(因为没有符号位).例如1xxxxx
+            将其右移一位,第二位肯定是1(01xxx),然后和原来的按位或,则将第二位直接变为1(此处都无需考虑低位数的值),11xxxx
+            将其右移二位,第三位和第四位肯定是1,按位或,则第三位第四位变为1,1111xx
+            将其右移四位,则第5-8位(就是之前的1-4)肯定是1,则第5-8位变为1
+            所以.依次到右移16,就是让前32位(Integer四个字节,最大就为32位)都变为了1.
+            但是一个二进制111,都不会是二的整数次幂,所以需要+1进位,变为1000,就变成了2的整数次幂,所以之前需要-1.
+            然后再判断下,保证不小于0,不大于最大限制容量即可.
+    >
     * 属性/方法等
     >
         static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;// 默认初始容量, 16,这样表示保证了其必须是2的x次方.
@@ -481,7 +521,8 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
         
         Class<?> comparableClassFor(Object x):判断x这个类是否实现了Comparable<(x的类型)>接口.如果实现了或者x的类型是String,那么返回x的Class<?>.否则返回null
         int compareComparables(Class<?> kc, Object k, Object x):如果x为null或x的类型不为kc,返回0,否则返回((Comparable)k).compareTo(x);k和x的比较结果
-        int tableSizeFor(int cap):其作用是,返回一个是2的x次方的,比cap大的,但是又最接近cap的整数.例如cap=10,返回16;cap=17,返回32;
+        
+            
         transient Node<K,V>[] table;//存储元素的数组(哈希表).第一次初始化时使用,必须使用resize()方法
         transient Set<Map.Entry<K,V>> entrySet;// 保存缓存的entrySet()的结果.
         transient int size;//元素个数
@@ -490,8 +531,21 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
             该属性的赋值全是通过int tableSizeFor(int cap)方法的结果
         final float loadFactor;//负载因子
         
-        以下为public
+        构造函数-其余构造函数无非是,限制下容量,或者使用默认参数.调用该方法
         public HashMap(int initialCapacity, float loadFactor) : 指定初始容量和负载因子构建空的HashMap.
+            会将initialCapacity作为参数调用之前的tableSizeFor方法,获取最接近的二的整数次幂的数,赋值给threshold.
+        public HashMap(Map<? extends K, ? extends V> m) : 使用m的数据新建一个map.会调用下面的putMapEntries()方法.
+        
+        putMapEntries(Map<? extends K, ? extends V> m, boolean evict) : 
+        
+        Node<K,V> getNode(int hash, Object key):获取table字段中的node节点.根据hash(key)和key.  get()方法是调用它的.
+            根据(length - 1) & hash计算出下标,从table字段中获取对应的Node.如果该节点和传入的key不匹配,
+            如果node已经被转为了TreeNode,就调用其getTreeNode(hash, key);
+            否则do-while循环获取node的next字段,直到匹配或结束(next为null)
+        
+        final V putVal(int hash, K key, V value, boolean onlyIfAbsent,boolean evict) : 将key/value放入集合. put()方法调用它.
+                
+        Node<K,V>[] resize(): 初始化或扩展集合大小,如果为null,设为符合    
         
 
             
@@ -531,6 +585,7 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
     >
 
 
-
-
+ 
+     
+      
 

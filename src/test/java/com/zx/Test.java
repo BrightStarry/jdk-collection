@@ -11,12 +11,11 @@ public class Test {
 
 	@org.junit.Test
 	public void test() {
-		HashMap<String, String> a = new HashMap<>();
-		a.put("a", "1");
-		a.put("b", "2");
-		System.out.println(a.keySet());
-		a.put("c", "3");
-		System.out.println(a.keySet());
 
+
+	}
+
+	public static void main(String[] args) {
+		new HashMap<>(16);
 	}
 }
