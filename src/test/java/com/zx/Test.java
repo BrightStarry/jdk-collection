@@ -1,7 +1,6 @@
 package com.zx;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * author:ZhengXing
@@ -11,8 +10,6 @@ public class Test {
 
 	@org.junit.Test
 	public void test() {
-
-
 	}
 
 	public static void main(String[] args) {

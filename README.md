@@ -358,6 +358,18 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
     该对象只能通过entrySet()方法获取.如果迭代时修改了map的值,则也是未定义(???).除非使用该接口内部修改的.
         可以获取key和value,修改value.其他还有些java8的.略过.
 >
+
+* SortedMap<K,V> extends Map<K,V> : 有序的Map接口.
+>
+    增加了获取第一个key,获取最后一个key,
+    截取某个key之前的所有元素,截取某个key之后的所有元素,获取两个key之间的所有元素等方法.
+>
+
+* NavigableMap<K,V> extends SortedMap<K,V>: 可导航的Map,继承SortedMap.
+>
+    增加了若干获取大于等于指定key的第一个元素,获取小于等于指定key的第一个元素等等等等的方法.
+>
+
 * AbstractMap<K,V> abstract  implements Map<K,V> : 抽象map类.最小化的实现了map接口
 >
     基本操作的实现依靠的是 entrySet()返回的Set<Entry<K,V>>,然后调用.iterator()返回迭代器进行操作.例如如下get方法,key是要获取的元素的key
@@ -453,7 +465,15 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
     >
     * 综述
     >
+        容量(capacity): 数组长度table.length; 
+        长度(size):table中真正存储的元素个数,也是我们通常意义上的集合长度.
+        负载因子(loadFactor): 一个应该小于1的小数.
+        阈值(threshold): 计算方式为 容量 * 负载因子;
+        当一个map中的元素个数超过阈值后,就会调用方法进行扩容,每次扩容将当前容量和阈值增大两倍,以此防止频繁的扩容.
+        将元素存储在一个Node数组(table属性)中,Node类包含了每个元素的key/value/hash/next(链表的下一元素,用于解决哈希冲突).
         
+        此外,当元素超过一定个数后,普通的Node会转换为TreeNode.将数据结构从链表转换为了红黑树.
+        当元素个数小于一定个数后,会转换回来.
     >
     * 介绍
     >
@@ -474,9 +494,10 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
             并且,如果不进行该运算,如果若干key都是0x0DEF0000这样的,低四位位0,就可能导致若干值都存储在了下标为0的位置.
             
             
-        (length - 1) & hash : put()get()等方法中,调用hash()方法后的值还不能作为数组下标(因为太大了),还需要进行该运算.类似取模
-            将散列值和hashMap的长度-1进行按位与运算.这也是map长度需要为2的整数次幂的原因.
-            这样其长度的二进制表示只会是1后面跟若干个0,然后-1,就变成了若干个1.
+        (capacity - 1) & hash : put()get()等方法中,调用hash()方法后的值还不能作为数组下标(因为太大了),还需要进行该运算.类似取模
+            注意,此处是容量capacity,而不是长度size;前者是table的总长度,后者是table当前真正包含的元素个数.
+            将散列值和hashMap的长度-1进行按位与运算.这也是map容量需要为2的整数次幂的原因.
+            因为2的整数次幂的二进制表示只会是1后面跟若干个0,然后-1,就变成了若干个1.
             再和散列值进行按位与,就相当于将高位全部归零，只保留末x位(根据此时map长度的位数).如下,
                 10100101 11000100 00100101
             &	00000000 00000000 00001111
@@ -507,9 +528,9 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
         static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;// 默认初始容量, 16,这样表示保证了其必须是2的x次方.
         static final int MAXIMUM_CAPACITY = 1 << 30;//最大容量,限制自己指定的初始容量必须小于该值,必须是2的x次方且小于2的30次方.
         static final float DEFAULT_LOAD_FACTOR = 0.75f;//默认负载因子
-        static final int TREEIFY_THRESHOLD = 8;//一个桶中,使用treeNode的阈值,当bin个数大于该值后,节点由hash table转为tree node.
-        static final int UNTREEIFY_THRESHOLD = 6;//一个桶中,不再使用treeNode的阈值,要小于TREEIFY_THRESHOLD.当bin个数小于该值后,tree node 转为 hash table
-        static final int MIN_TREEIFY_CAPACITY = 64;//当表的容量超过该值时,桶中的bin才能转为树,否则即使超过后,也只是扩容.
+        static final int TREEIFY_THRESHOLD = 8;//一个桶中,使用treeNode的阈值,当元素个数大于该值后,节点由hash table转为tree node.
+        static final int UNTREEIFY_THRESHOLD = 6;//一个桶中,不再使用treeNode的阈值,要小于TREEIFY_THRESHOLD.当元素个数小于该值后,tree node 转为 hash table
+        static final int MIN_TREEIFY_CAPACITY = 64;//当表的容量超过该值时,桶中的元素才能转为树,否则即使超过后,也只是扩容.
         static class Node<K,V> implements Map.Entry<K,V> : 基本的哈希bin节点.用于大多数Entry.定义有如下属性
                     final int hash;//该节点的hash值
                     final K key;
@@ -519,69 +540,136 @@ Key/Value映射对象,key不能包含重复的键,每个key指向一个value
                     其中^操作数字表示按位异或(二进制并排,上下比较,相同为0,不同为1;此外,按位与(&)表示都为1时才为1.按位或(|)表示有一个为1就为1)
         以上是所有static
         
-        Class<?> comparableClassFor(Object x):判断x这个类是否实现了Comparable<(x的类型)>接口.如果实现了或者x的类型是String,那么返回x的Class<?>.否则返回null
-        int compareComparables(Class<?> kc, Object k, Object x):如果x为null或x的类型不为kc,返回0,否则返回((Comparable)k).compareTo(x);k和x的比较结果
+        TreeNode  树化后的node.     
+                    详细,可参考该博客:http://blog.csdn.net/u011240877/article/details/53358305
+                        static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> 
+                        包括继承的属性和自身的属性,
+                            //自身
+                            TreeNode<K,V> parent;  // 父节点
+                            TreeNode<K,V> left; //左子元素
+                            TreeNode<K,V> right; //右子元素
+                            TreeNode<K,V> prev;    //前一个元素的节点 需要在删除时取消链接
+                            boolean red; //红黑颜色属性
+                            treeifyBin(): 树化方法.
+                            putTreeVal(): 在红黑树中增加元素
+                            getTreeNode(): 在红黑树中查询元素
+                            split():树形结构修剪. 把树形结构缩小,或者还原成链表结构.
         
-            
+       
         transient Node<K,V>[] table;//存储元素的数组(哈希表).第一次初始化时使用,必须使用resize()方法
         transient Set<Map.Entry<K,V>> entrySet;// 保存缓存的entrySet()的结果.
         transient int size;//元素个数
         transient int modCount;//修改次数(主要用于保证线程安全的快速失败使用)
-        int threshold;//下一次使用resize()方法后的容量大小(容量*负载因子) 如果没有分配Node<K,V>[] table,会为0,表示DEFAULT_INITIAL_CAPACITY(默认初始容量)
+        int threshold; //阈值,小于当前容量(table总长度),大于真正长度size(table存储的元素个数);
+            当size大于阈值后,就需要对table进行扩容,以让它容纳更多元素.
+            如果没有分配Node<K,V>[] table,会为0,表示DEFAULT_INITIAL_CAPACITY(默认初始容量)
             该属性的赋值全是通过int tableSizeFor(int cap)方法的结果
         final float loadFactor;//负载因子
+        
+        Class<?> comparableClassFor(Object x):判断x这个类是否实现了Comparable<(x的类型)>接口.如果实现了或者x的类型是String,那么返回x的Class<?>.否则返回null
+        int compareComparables(Class<?> kc, Object k, Object x):如果x为null或x的类型不为kc,返回0,否则返回((Comparable)k).compareTo(x);k和x的比较结果
         
         构造函数-其余构造函数无非是,限制下容量,或者使用默认参数.调用该方法
         public HashMap(int initialCapacity, float loadFactor) : 指定初始容量和负载因子构建空的HashMap.
             会将initialCapacity作为参数调用之前的tableSizeFor方法,获取最接近的二的整数次幂的数,赋值给threshold.
         public HashMap(Map<? extends K, ? extends V> m) : 使用m的数据新建一个map.会调用下面的putMapEntries()方法.
         
-        putMapEntries(Map<? extends K, ? extends V> m, boolean evict) : 
+        putMapEntries(Map<? extends K, ? extends V> m, boolean evict) : 将传入的m集合全部加入this map.
+            如果当前map没有元素,用传入的m的长度根据负载因子(loadFactor)计算出下次要扩容的长度(threshold).
+            如果有元素,并且,m的长度大于threshold(下次扩容长度),就调用resize()方法.
+            最后循环m,使用putVal()方法将m的每个元素插入map.
         
         Node<K,V> getNode(int hash, Object key):获取table字段中的node节点.根据hash(key)和key.  get()方法是调用它的.
             根据(length - 1) & hash计算出下标,从table字段中获取对应的Node.如果该节点和传入的key不匹配,
             如果node已经被转为了TreeNode,就调用其getTreeNode(hash, key);
-            否则do-while循环获取node的next字段,直到匹配或结束(next为null)
+            否则do-while循环获取node的next字段,从在链表中查找.直到匹配或结束(next为null)
         
         final V putVal(int hash, K key, V value, boolean onlyIfAbsent,boolean evict) : 将key/value放入集合. put()方法调用它.
+            如果当前map元素为0,直接调用resize()扩容
+        
                 
-        Node<K,V>[] resize(): 初始化或扩展集合大小,如果为null,设为符合    
-        
+        Node<K,V>[] resize(): 初始化或双倍扩容集合大小,如果为null,
+            获取旧的(当前)table(保存所有元素的Node<K,V>[]),长度,以及threshold(阈值).
+            1-如果旧容量已经大于0,则新容量 = 旧容量*2; 并且如果旧容量*2,小于最大容量限制,旧容量大于默认初始容量(16),则新阈值 = 旧阈值*2.
+            2-如果阈值大于0(使用有参的构造方法创建的map,调用了tableSizeFor()方法),新容量 = 阈值.
+            3-(以上都不成立,使用无参方法创建的map),新容量 = 初始容量(16); 新阈值 = 初始容量 * 默认负载因子(0.75)            
+            最后在判断此时新阈值是否有值,如果没有,新阈值 = 新容量 * 负载因子; 但如果超出最大限制,则使用Integer.MAX_VALUE
+            使用新容量创建出新的table : Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
+            如果此时旧的table不为空,则需要将旧的元素一一添加到newTable中去.循环每个元素: Node<K,V> e;
+                1-如果元素next属性为空,表示为普通链表结构,并且该hash位置的元素只有一个,通过其hash与容量-1按位与后,直接赋值:  newTab[e.hash & (newCap - 1)] = e;
+                2-如果元素是TreeNode,调用其split()方法,修剪树形结构. 把树形结构缩小,或者还原成链表结构.
+                3-否则(当前为普通链表结构),
+                    每个元素的旧索引,是通过 hash ^ (旧容量-1) 得到的. 并且hash是不会变的,而新容量是旧容量的两倍,也就是说,
+                    假设旧容量-1为11111,那么新容量-1就肯定是111111,那么,根据按位与的运算,只需要判断,hash中,新容量-1后的结果
+                    比旧容量-1后的结果多出的最左边那一位是否是1,就可以判断出新table中索引结果是否改变.
+                    所以,只需要if ((e.hash & oldCap) == 0) 这么判断,true,则表示索引不变.
+                    然后还是将元素变为一个链表,如果索引没变,放回newTable的原位置: newTab[j] = loHead;
+                    如果索引变了,那么只会是,如上所述的位置变为了1(那个位置的值也就是旧容量的大小),直接放入该位置即可: newTab[j + oldCap] = hiHead;
+    >
 
-            
+* LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V>
+    * 综述
+    >
+        继承了HashMap,多维护了一个双向列表LinkedHashMap.Entry.
+        用head和tail属性分别维护了头元素和尾元素.
         
-        
-        
+        并且,在HashMap的一些元素操作方法中,预留了LinkedHashMap的回调操作方法,用于对该双向列表的维护
+            void afterNodeAccess(Node<K,V> p) { }
+            void afterNodeInsertion(boolean evict) { }
+            void afterNodeRemoval(Node<K,V> p) { }
+            例如删除元素时,调用afterNodeRemoval方法,将被删除元素的前一个元素和后一个元素连接.以删除该元素
     >
-    * 其他
+    * 其真正存储元素的类,继承了HashMap的Node
     >
-        
+        每个对象存储了前一个Node和后一个Node
+        static class Entry<K,V> extends HashMap.Node<K,V> {
+                Entry<K,V> before, after;
+                Entry(int hash, K key, V value, Node<K,V> next) {
+                    super(hash, key, value, next);
+                }
+            }
     >
-    * 注意点
-    >
-        它通常作为一个二进制的hash table.当时当数据过大,就变为了TreeNode,每个结构类似于TreeMap.
-    >
-
     
-#### Set相关-本来先看set...结果我忘了HashSet的实现是靠HashMap....
+* TreeMap<K,V> extends AbstractMap<K,V> implements NavigableMap<K,V>, Cloneable, java.io.Serializable
+    * 综述
+    >
+        直接基于红黑树实现的map.主要用于输入时就对元素进行排序,输出时直接输出有序集合.
+        维护了红黑树的一个根节点,每个节点属性如下
+                K key;
+                V value;
+                Entry<K,V> left;
+                Entry<K,V> right;
+                Entry<K,V> parent;
+                boolean color = BLACK;
+        根据key获取元素时,遍历红黑树,返回元素.
+        调用NavigableMap接口相关方法时,使用NavigableSubMap<K,V>/AscendingSubMap<K,V>等若干
+        内部类,其实就是维护了这些方法调用时,传入的 起始key(最小的),结束key(最大的),还有map自身.
+        然后在调用这些内部类的get等方法时,判断传入的key是否在起始和结束key之前,来返回或不返回.
+        
+        其元素需要实现Comparable接口,或者构造时传入Comparator接口实现类
+    >
+    
+#### Set相关
 不包含重复元素的集合,因此最多存在一个null元素.
 
 * Set<E> extends Collection<E> :  set接口,只是一个声明而已,没有任何实现,也没什么特别的方法
 
 * AbstractSet<E> extends AbstractCollection<E> implements Set<E> : 抽象set类,也没什么特别的方法
 
+* SortedSet 和 NavigableSet 和对应Map类似,不再赘述
+
 * HashSet<E> extends AbstractSet<E>  implements Set<E>, Cloneable, java.io.Serializable : hashSet 保存了hashcode.无序,允许元素为null
     * 综述
     >
-    
+        组合了HashMap.也可以指定其初始容量和负载因子(就是其内部hashMap的初始容量和负载因子).
+        它的元素不重复功能,是通过将元素作为key,存入HashMap中(value随便定义了个new Object()无任何意义.)实现的.
+        其他没有什么好讲的,全都是调用的hashMap的方法
     >
-    * 介绍
+
+* TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>, Cloneable, java.io.Serializable
+    * 综述
     >
-    
-    >
-    * 属性
-    >
-    
+        维护的Map变为了TreeMap而已.
     >
 
 
